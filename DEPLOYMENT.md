@@ -1,12 +1,7 @@
 # Hosting
 
-The GitHub Pages site uses the API service defined in `render.yaml` to fetch market data. The Pages URL is `https://stanleyfong2012-hub.github.io/hk-stock-mini-lab/` and the default Render API URL is `https://hk-stock-mini-lab-api.onrender.com`.
+The Pages site is available at <https://stanleyfong2012-hub.github.io/hk-stock-mini-lab/>. It runs as a static site and does not need a separate API service.
 
-## First deployment
+Import a CSV with `Date` and `Close` columns. `Adj Close` is also supported and is preferred when both closing-price columns are present. The ticker field labels the chart; the lookback control filters the imported history. Parsing and calculations run in the browser.
 
-1. Push the changes on the `main` branch to the connected GitHub repository.
-2. In Render, create a new Blueprint from that repository and deploy the `hk-stock-mini-lab-api` service. Confirm the service URL is `https://hk-stock-mini-lab-api.onrender.com`; if Render assigns a different URL, update `docs/config.js` to match and push that change.
-3. In the GitHub repository, open **Settings > Pages** and set the build source to **GitHub Actions**.
-4. The Pages workflow deploys on pushes to `main`. GitHub will show the resulting site URL in the workflow run.
-
-The free Render service may take a short time to wake after inactivity. Yahoo Finance can also rate-limit requests; the site displays a request error if market data is temporarily unavailable.
+The GitHub Actions workflow deploys the `docs` directory on pushes to `main`. The repository's Pages source must be set to **GitHub Actions** under **Settings > Pages**. Chart.js and Papa Parse are loaded from jsDelivr, so an internet connection is needed to render the chart and parse CSV files.

@@ -1,14 +1,16 @@
-const form = document.querySelector("#stock-form");
 const tickerInput = document.querySelector("#ticker");
 const periodInput = document.querySelector("#period");
 const loadButton = document.querySelector("#load-button");
+const fileInput = document.querySelector("#csv-file");
 const statusRow = document.querySelector("#status");
 const statusText = document.querySelector("#status-text");
 const chartCanvas = document.querySelector("#price-chart");
 const chartEmpty = document.querySelector("#chart-empty");
 let priceChart;
+let sourcePrices = [];
 
 const periodLabels = { "6mo": "6 MONTHS", "1y": "1 YEAR", "2y": "2 YEARS" };
+const periodMonths = { "6mo": 6, "1y": 12, "2y": 24 };
 
 function setStatus(message, state = "") {
   statusText.textContent = message;
@@ -28,11 +30,11 @@ function calculateMetrics(prices) {
 
   if (returns.length > 0) {
     let cumulative = 1;
-    let peak = 0;
+    let peak = null;
     drawdown = 0;
     for (const value of returns) {
       cumulative *= 1 + value;
-      peak = Math.max(peak, cumulative);
+      peak = peak === null ? cumulative : Math.max(peak, cumulative);
       drawdown = Math.min(drawdown, cumulative / peak - 1);
     }
   }
@@ -106,13 +108,22 @@ function renderChart(prices) {
   });
 }
 
-function updateDashboard(data) {
-  const metrics = calculateMetrics(data.prices);
-  const lastPrice = data.prices[data.prices.length - 1];
+function filterPrices(prices, period) {
+  const lastDate = new Date(`${prices[prices.length - 1].date}T00:00:00Z`);
+  const cutoff = new Date(lastDate);
+  cutoff.setUTCMonth(cutoff.getUTCMonth() - periodMonths[period]);
+  const filtered = prices.filter((point) => new Date(`${point.date}T00:00:00Z`) >= cutoff);
+  return filtered.length ? filtered : prices;
+}
 
-  renderChart(data.prices);
-  document.querySelector("#chart-title").textContent = data.ticker;
-  document.querySelector("#chart-range").textContent = periodLabels[data.period];
+function updateDashboard() {
+  const prices = filterPrices(sourcePrices, periodInput.value);
+  const metrics = calculateMetrics(prices);
+  const lastPrice = prices[prices.length - 1];
+
+  renderChart(prices);
+  document.querySelector("#chart-title").textContent = tickerInput.value.trim().toUpperCase();
+  document.querySelector("#chart-range").textContent = periodLabels[periodInput.value];
   document.querySelector("#volatility").textContent = formatPercent(metrics.volatility);
   document.querySelector("#drawdown").textContent = formatPercent(metrics.drawdown);
   document.querySelector("#latest-close").textContent = lastPrice.close.toLocaleString(undefined, {
@@ -122,38 +133,75 @@ function updateDashboard(data) {
   chartEmpty.hidden = true;
 }
 
-async function loadStock(event) {
-  event.preventDefault();
-  const apiBase = (window.HK_STOCK_API_URL || "").replace(/\/$/, "");
-  if (!apiBase) {
-    setStatus("Set the API URL in config.js before loading prices.", "error");
+function parseCsv(file) {
+  if (!window.Papa) {
+    setStatus("The CSV parser did not load. Check your connection and try again.", "error");
     return;
   }
 
-  const ticker = tickerInput.value.trim().toUpperCase();
-  const period = periodInput.value;
-  const params = new URLSearchParams({ ticker, period });
   loadButton.disabled = true;
-  setStatus("Fetching adjusted prices…", "loading");
+  setStatus(`Reading ${file.name}…`, "loading");
 
-  try {
-    const response = await fetch(`${apiBase}/api/stock?${params}`);
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.detail || "The data request failed.");
-    }
-    if (!Array.isArray(result.prices) || result.prices.length === 0) {
-      throw new Error("No price history was returned for this ticker.");
-    }
+  window.Papa.parse(file, {
+    header: true,
+    skipEmptyLines: "greedy",
+    complete(result) {
+      try {
+        const headers = result.meta.fields || [];
+        const dateHeader = headers.find((header) => header.trim().toLowerCase() === "date");
+        const closeHeader = headers.find((header) => header.trim().toLowerCase() === "adj close")
+          || headers.find((header) => header.trim().toLowerCase() === "close");
+        if (!dateHeader || !closeHeader) {
+          throw new Error("CSV must include Date and Close columns (Adj Close is also supported).");
+        }
 
-    updateDashboard(result);
-    setStatus(`${result.prices.length} daily observations · updated ${result.prices.at(-1).date}`, "success");
-  } catch (error) {
-    setStatus(error.message || "Unable to load market data.", "error");
-  } finally {
-    loadButton.disabled = false;
-  }
+        const pricesByDate = new Map();
+        for (const row of result.data) {
+          const rawDate = String(row[dateHeader] || "").trim();
+          const parsedDate = new Date(rawDate);
+          const date = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+            ? rawDate
+            : Number.isNaN(parsedDate.getTime()) ? "" : parsedDate.toISOString().slice(0, 10);
+          const close = Number(String(row[closeHeader] || "").replaceAll(",", "").trim());
+          if (date && Number.isFinite(close) && close > 0) {
+            pricesByDate.set(date, { date, close });
+          }
+        }
+
+        sourcePrices = Array.from(pricesByDate.values()).sort((left, right) => left.date.localeCompare(right.date));
+        if (sourcePrices.length === 0) {
+          throw new Error("No valid dates and closing prices were found in this CSV.");
+        }
+
+        updateDashboard();
+        const visiblePrices = filterPrices(sourcePrices, periodInput.value);
+        setStatus(`${visiblePrices.length} observations · last date ${visiblePrices[visiblePrices.length - 1].date}`, "success");
+      } catch (error) {
+        setStatus(error.message || "Unable to read this CSV file.", "error");
+      } finally {
+        loadButton.disabled = false;
+      }
+    },
+    error(error) {
+      setStatus(error.message || "Unable to read this CSV file.", "error");
+      loadButton.disabled = false;
+    },
+  });
 }
 
-form.addEventListener("submit", loadStock);
-form.requestSubmit();
+loadButton.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+  if (fileInput.files.length > 0) {
+    parseCsv(fileInput.files[0]);
+  }
+});
+periodInput.addEventListener("change", () => {
+  if (sourcePrices.length > 0) {
+    updateDashboard();
+    const visiblePrices = filterPrices(sourcePrices, periodInput.value);
+    setStatus(`${visiblePrices.length} observations · last date ${visiblePrices[visiblePrices.length - 1].date}`, "success");
+  }
+});
+tickerInput.addEventListener("input", () => {
+  document.querySelector("#chart-title").textContent = tickerInput.value.trim().toUpperCase() || "TICKER";
+});
