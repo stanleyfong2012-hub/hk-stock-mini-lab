@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f7f4">
+    <title>HK Stock Mini Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
+    <script src="config.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="./" aria-label="HK Stock Mini Lab home">
+        <span class="wordmark-icon" aria-hidden="true">HK</span>
+        <span>MARKET STUDY <span class="wordmark-divider">/</span> 01</span>
+      </a>
+      <span class="market-label"><span class="live-dot"></span> HONG KONG MARKET</span>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">A SMALL TOOL FOR BIG PICTURE THINKING</p>
+        <h1 id="page-title">Price, risk, <span>in view.</span></h1>
+        <p class="intro-copy">Explore adjusted closing prices alongside two simple measures of risk.</p>
+      </section>
+
+      <section class="lab" aria-label="Stock analysis">
+        <form class="controls" id="stock-form">
+          <label class="field ticker-field" for="ticker">
+            <span class="field-label">TICKER</span>
+            <input id="ticker" name="ticker" type="text" value="0700.HK" maxlength="20" autocomplete="off" spellcheck="false" required>
+          </label>
+          <label class="field period-field" for="period">
+            <span class="field-label">LOOKBACK</span>
+            <select id="period" name="period">
+              <option value="6mo">6 months</option>
+              <option value="1y" selected>1 year</option>
+              <option value="2y">2 years</option>
+            </select>
+          </label>
+          <button class="load-button" id="load-button" type="submit">Load data <span aria-hidden="true">↗</span></button>
+        </form>
+
+        <div class="status-row" id="status" role="status" aria-live="polite">
+          <span class="status-mark" aria-hidden="true"></span>
+          <span id="status-text">Ready when you are</span>
+        </div>
+
+        <div class="chart-panel">
+          <div class="chart-heading">
+            <div>
+              <p class="field-label">ADJUSTED CLOSE</p>
+              <h2 id="chart-title">0700.HK</h2>
+            </div>
+            <p class="chart-period" id="chart-range">1 YEAR</p>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="price-chart" aria-label="Adjusted closing price chart" role="img"></canvas>
+            <p class="chart-empty" id="chart-empty">Load a ticker to see its price history.</p>
+          </div>
+          <div class="metrics" aria-label="Risk metrics">
+            <div class="metric">
+              <span class="metric-label">ANNUALIZED VOLATILITY</span>
+              <strong id="volatility">--</strong>
+            </div>
+            <div class="metric">
+              <span class="metric-label">MAX DRAWDOWN</span>
+              <strong id="drawdown">--</strong>
+            </div>
+            <div class="metric">
+              <span class="metric-label">LATEST CLOSE</span>
+              <strong id="latest-close">--</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="page-footer">
+        <span>學習用途，非投資建議。</span>
+        <span>Data provided by Yahoo Finance</span>
+      </footer>
+    </main>
+  </body>
+</html>

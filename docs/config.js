@@ -1,0 +1,1 @@
+window.HK_STOCK_API_URL = "https://hk-stock-mini-lab-api.onrender.com";
